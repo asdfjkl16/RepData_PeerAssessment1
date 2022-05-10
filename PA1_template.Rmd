@@ -4,6 +4,148 @@ output:
   html_document:
     keep_md: true
 ---
+Reading and exploring the basics of the data
+
+```{r, echo = TRUE}
+unzip("./activity.zip")
+activitydata <- read.csv("./activity.csv")
+summary(activitydata)
+dim(activitydata)
+names(activitydata)
+head(activitydata)
+```
+
+Transforming the date using lubridate
+
+```{r, echo = TRUE}
+library(lubridate)
+activitydata$date <- ymd(activitydata$date)
+```
+
+Histogram of the total number of steps taken each day.
+
+```{r, echo = TRUE}
+library(ggplot2)
+stepsperday <- aggregate(steps ~ date, activitydata, sum, na.rm = TRUE)
+
+ggplot(stepsperday, aes(x=date, y=steps)) + geom_bar(stat = "identity") + xlab("Date") + ylab("Total Steps") + ggtitle("Total Steps per Date") + theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+Mean and median of the total number of steps taken per date
+
+Mean: 
+```{r, echo = TRUE}
+meansteps <- mean(stepsperday$steps)
+meansteps
+```
+
+Median:
+```{r, echo = TRUE}
+mediansteps <- median(stepsperday$steps)
+mediansteps
+```
+
+Histogram of the mean number of steps taken per day
+
+```{r, echo = TRUE}
+stepsmean <- aggregate(steps ~ date, activitydata, mean, na.rm = TRUE)
+
+ggplot(stepsmean, aes(x=date, y=steps)) + geom_bar(stat = "identity") + xlab("Date") + ylab("Mean of Steps Taken per Day") + ggtitle("Mean Steps per Date") + theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+Time series plot of the average number of steps taken (average daily activity pattern)
+
+```{r, echo = TRUE}
+activitydf <- data.frame(activitydata)
+stepsperinterval <- aggregate(steps ~ interval, activitydf, mean, na.rm = TRUE)
+
+plot(steps ~ interval, data = stepsperinterval, type = "l")
+
+```
+
+5-minute interval with the maximum number of steps
+
+```{r, echo = TRUE}
+intervalwithmaxsteps <- stepsperinterval[which.max(stepsperinterval$steps),]$interval
+intervalwithmaxsteps
+```
+
+Imputing missing values
+
+Total number of missing values:
+```{r, echo = TRUE}
+totalmissing <- sum(is.na(activitydata$steps))
+totalmissing
+```
+
+Strategy for filling out missing value: substitute the missing values with means
+
+```{r, echo = TRUE}
+getmeansperinterval <- function(interval) {stepsperinterval[stepsperinterval$interval == interval,]$steps}
+```
+
+New dataset with imputed missing values
+
+```{r, echo = TRUE}
+activitydfimputed <- activitydf; 
+  for(i in 1:nrow(activitydfimputed)) { 
+    if(is.na(activitydfimputed[i,]$steps)){activitydfimputed[i,]$steps <- getmeansperinterval(activitydfimputed[i,]$interval)}}
+```
+
+Histogram of the total number of steps taken each day after missing values are imputed
+
+```{r, echo = TRUE}
+stepsperdayimputed <- data.frame(aggregate(steps ~ date, data = activitydfimputed, sum))
+
+ggplot(stepsperdayimputed, aes(x=date, y=steps)) + geom_bar(stat = "identity") + xlab("Date") + ylab("Steps Taken per Day") + ggtitle("Total Steps per Date") + theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+Mean and median of the total number of steps taken per date (based on the new dataset)
+
+Mean:
+```{r, echo = TRUE}
+meanstepsimputed <- mean(stepsperdayimputed$steps)
+meanstepsimputed
+```
+
+Median:
+```{r, echo = TRUE}
+medianstepsimputed <- median(stepsperday$steps)
+medianstepsimputed
+```
+
+Activity patterns between weekdays and weekends
+
+Creating a new factor variable in the dataset with two levels - "weekday" and "weekend"
+
+```{r, echo = TRUE}
+activitydfimputed$date <- as.Date(strptime(activitydfimputed$date, format = "%Y-%m-%d"))
+
+activitydfimputed$day <- weekdays(activitydfimputed$date);
+  for (i in 1:nrow(activitydfimputed)) {
+    if (activitydfimputed[i,]$day %in% c("Saturday", "Sunday")) {
+      activitydfimputed[i,]$day <- "weekend"
+    }
+    else{
+      activitydfimputed[i,]$day <- "weekday"
+    }
+  }
+
+stepsbyday <- aggregate(activitydfimputed$steps ~ activitydfimputed$interval + activitydfimputed$day, activitydfimputed, mean)
+```
+
+Panel plot containing a time series plot of the 5-minute interval and the average number of steps taken, averaged across all weekday days or weekend days.
+
+```{r, echo = TRUE}
+names(stepsbyday) <- c("interval", "day", "steps")
+library(lattice)
+
+xyplot(steps ~ interval | day, stepsbyday, type = "l", layout = c(1,2), xlab = "Interval", ylab = "Number of steps")
+
+```
 
 
 ## Loading and preprocessing the data
